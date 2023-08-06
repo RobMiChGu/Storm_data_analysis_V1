@@ -1,0 +1,216 @@
+---
+title: "Exploring the NOAA Storm Database"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r, echo=FALSE, results='hide', warning=FALSE, message=FALSE}
+library(ggplot2)
+library(dplyr)
+library(reshape2)
+
+```
+
+
+```{r}
+## Introduction
+# Severe storms and other weather events can cause significant health and economic impacts to communities and municipalities. Many severe events can lead to fatalities, injuries, and property damage, and it is a major concern to mitigate these consequences as much as possible.
+
+# The dataset used for this project is the Storm Database of the National Oceanic and Atmospheric Administration (NOAA). This database tracks the characteristics of severe storms and weather events in the United States, including when and where they occur, as well as estimates of fatalities, injuries, and property damage.
+
+# The purpose of this project is to analyze the NOAA Storm Database to identify trends and patterns in severe weather events in the United States. 
+
+# The analysis will focus on the following questions:
+# - What are the most common types of severe weather events in the United States?
+# - Where do severe weather events occur most frequently?
+# - What are the most significant health and economic impacts of severe weather events?
+# - The analysis will use a variety of statistical methods to answer these questions. 
+
+# The results of the analysis will be presented in a report that includes a discussion of the findings, as well as implications for public policy and decision-making.
+# --------------------------------------------------------------------------------------------------
+    
+```
+
+
+
+# how the data were loaded into R and processed for analysis
+```{r}
+#dataset<-download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2","E:/Data Science Foundations using R/5 Reproducible Research/Woche 4/storm_dataset")
+
+dataset <- read.csv(bzfile("E:/Data Science Foundations using R/5 Reproducible Research/Woche 4/Projekt_2/storm_dataset"))
+```
+
+
+
+# some content about the data
+```{r}
+head(dataset)
+
+str(dataset)
+
+names(dataset)
+
+```
+
+
+
+# Injuries sorting, top 10
+```{r}
+total_injuries <- aggregate(INJURIES~EVTYPE, dataset, sum)
+total_injuries <- arrange(total_injuries, desc(INJURIES))
+total_injuries <- total_injuries[1:20, ]
+total_injuries
+
+```
+
+
+# Total fatalities
+```{r}
+total_fatalities <- aggregate(FATALITIES~EVTYPE,dataset, sum)
+total_fatalities <- arrange(total_fatalities, desc(FATALITIES))
+total_fatalities <- total_fatalities[1:20, ]
+total_fatalities
+str(total_fatalities)
+
+```
+
+
+# Results: Weather events, highest fatalities, top 10
+```{r}
+totals <- total_fatalities
+par(mfrow = c(1, 2), mar = c(15, 4, 3, 2), mgp = c(3, 1, 0), cex = 0.8)
+barplot(totals$FATALITIES, las = 3, names.arg = totals$EVTYPE, main = "Weather events, highest fatalities, top 10", ylab = "fatalities", col = totals$FATALITIES)
+
+```
+
+
+# Sad stuff - top 5
+```{r}
+totals<- merge(total_fatalities, total_injuries, by.x = "EVTYPE", by.y = "EVTYPE")
+totals<-arrange(totals,desc(FATALITIES+INJURIES))
+
+sad_stuff <- melt(totals, id.vars="EVTYPE", variable.name = "bad_thing")
+tail(sad_stuff, 5)
+
+```
+
+
+# Results: Top 10 destroyer
+```{r}
+healthChart <- ggplot(sad_stuff, aes(x=reorder(EVTYPE, -value), y=value))
+
+healthChart = healthChart + geom_bar(stat="identity", aes(fill=bad_thing), position="dodge")
+healthChart = healthChart + xlab("types of events") 
+healthChart = healthChart + theme(axis.text.x = element_text(angle=45, hjust=1))
+healthChart = healthChart + ggtitle("Top 10 destroyer") + theme(plot.title = element_text(hjust = 0.5))
+healthChart
+
+```
+
+
+# Event type - sorting PROPDMG
+```{r}
+propdmg <- aggregate(PROPDMG ~ EVTYPE, data = dataset, FUN = sum)
+propdmg <- propdmg[order(propdmg$PROPDMG, decreasing = TRUE), ]
+propdmgMax <- propdmg[1:10, ]
+print(propdmgMax)
+
+```
+
+
+
+# Event type - sorting CROPDMG
+```{r}
+cropdmg <- aggregate(CROPDMG ~ EVTYPE, data = dataset, FUN = sum)
+cropdmg <- cropdmg[order(cropdmg$CROPDMG, decreasing = TRUE), ]
+cropdmgMax <- cropdmg[1:10, ]
+print(cropdmgMax)
+
+```
+
+
+# Greatest property damages & greatest crop damages, top10
+```{r}
+par(mfrow = c(1, 2), mar = c(15, 4, 3, 2), mgp = c(3, 1, 0), cex = 0.8)
+
+options(scipen = 999)
+
+barplot(propdmgMax$PROPDMG, las = 3, names.arg = propdmgMax$EVTYPE, 
+        main = "Greatest property damages, top 10", 
+        ylab = "injuries", col = propdmgMax$PROPDMG)
+
+barplot(cropdmgMax$CROPDMG, las = 3, names.arg = cropdmgMax$EVTYPE, 
+        main = "Greatest crop damages, top 10", 
+        ylab = "injuries", col = cropdmgMax$CROPDMG)
+
+```
+
+
+# Top 5 Event-Type - Damage Type ="PROPDMG"
+```{r}
+totalDamage<- merge(propdmgMax,cropdmgMax,by.x = "EVTYPE", by.y = "EVTYPE")
+totalDamage<-arrange(totalDamage,desc(PROPDMG + CROPDMG))
+top10damages <- melt(totalDamage, id.vars="EVTYPE", variable.name = "Damage_Types")
+head(top10damages, 5)
+
+```
+
+
+# Highest economic consequences, top 10
+```{r}
+DamageChart <- ggplot(top10damages, aes(x=reorder(EVTYPE, -value/100000), y=value/100000))
+DamageChart = DamageChart + geom_bar(stat="identity", aes(fill=Damage_Types), position="dodge")
+DamageChart = DamageChart + xlab("Types of events") +ylab("Costs of damage in $ (billions)")
+DamageChart = DamageChart + theme(axis.text.x = element_text(angle=45, hjust=1))
+DamageChart = DamageChart + ggtitle("Highest economic consequences, top 10") + theme(plot.title = element_text(hjust = 0.5))
+DamageChart
+
+```
+
+
+# Top 5 Event-Type - Damage Type ="TOTALDMG"
+```{r}
+totalDamage<- merge(propdmgMax,cropdmgMax,by.x = "EVTYPE", by.y = "EVTYPE")
+totalDamage$TOTALDMG <- totalDamage$PROPDMG + totalDamage$CROPDMG
+totalDamage<-arrange(totalDamage,desc(TOTALDMG))
+top10damages <- melt(totalDamage, id.vars="EVTYPE", variable.name = "Damage_Types")
+tail(top10damages, 5)
+
+```
+  
+
+# Highest economic consequences, top 10
+```{r}
+DamageChart <- ggplot(top10damages, aes(x=reorder(EVTYPE, -value/1000), y=value/1000),fill=Damage_Types)
+DamageChart = DamageChart + geom_bar(stat="identity", aes(fill=Damage_Types), position="dodge")
+DamageChart = DamageChart + xlab("Types of events") + ylab("Costs of damage in $ (billions)")
+DamageChart = DamageChart + theme(axis.text.x = element_text(angle=45, hjust=1))
+DamageChart = DamageChart + ggtitle("Highest economic consequences, top 10") + theme(plot.title = element_text(hjust = 0.5))
+DamageChart
+
+```
+  
+---
+Summary:
+The analysis of the NOAA Storm Database has shown that the most common types of severe weather events in the United States are tornadoes, hurricanes, and storms. These events occur most frequently in the South and Southeast United States. The most serious health and economic impacts of severe weather events are fatalities, injuries, and property damage.
+  
+Discussion of Implications:
+The findings of the analysis have important implications for public policy and decision-making. The government should take action to protect the public from the consequences of severe weather events. This includes improved early warning systems, disaster preparedness plans, and recovery efforts. Businesses and individuals should also take action to protect themselves from the consequences of severe weather events. This includes insurance, emergency plans, and supplies.
+  
+Recommendations for Further Research:
+The findings of the analysis can be supported or expanded by further research. Areas that should be further investigated include:
+
+- The impacts of severe weather events on different population groups
+- The impacts of severe weather events on the environment
+- The costs of severe weather events
+- The effectiveness of disaster mitigation measures
+  
+Conclusion:
+The analysis of the NOAA Storm Database has provided important insights into the severity and extent of severe weather events in the United States. The findings of the analysis have important implications for public policy and decision-making. By implementing disaster mitigation measures, the public can be protected from the consequences of these events.
